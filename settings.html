@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Student Settings</title>
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+  <header>
+    <div style="flex:1;font-weight:600;">Student Settings</div>
+    <nav><a href="index.html">Picker</a></nav>
+  </header>
+  <main>
+    <h1>Manage Students</h1>
+    <div class="flex" style="margin-bottom:10px;">
+      <input id="studentName" class="grow" type="text" placeholder="Student name" />
+      <button id="addBtn" style="white-space:nowrap;">Add</button>
+    </div>
+    <div class="toolbar">
+      <button id="resetCountsBtn" class="secondary small" title="Clear pick history and reset counts">Reset Counts</button>
+      <button id="clearAllBtn" class="danger small" title="Delete all students & history">Delete All</button>
+      <button id="exportBtn" class="small" title="Export data">Export</button>
+      <input type="file" id="importFile" style="display:none;" accept="application/json" />
+      <button id="importBtn" class="small" title="Import exported JSON">Import</button>
+    </div>
+    <h2 style="margin-top:30px;">Students</h2>
+    <table id="studentsTable">
+      <thead>
+        <tr><th style="width:40px;">#</th><th>Name</th><th>Count</th><th>Last Pick</th><th>Actions</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <h2 style="margin-top:35px;">Pick History</h2>
+    <div class="history-log">
+      <table id="historyTable" style="margin:0;">
+        <thead><tr><th style="width:60px;">#</th><th>Student</th><th>Time</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+  <footer><a class="inline-link" href="index.html">Go to Picker</a></footer>
+  <script src="storage.js"></script>
+  <script>
+    const nameInput = document.getElementById('studentName');
+    const addBtn = document.getElementById('addBtn');
+    const studentsTableBody = document.querySelector('#studentsTable tbody');
+    const historyTableBody = document.querySelector('#historyTable tbody');
+    const resetCountsBtn = document.getElementById('resetCountsBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const importBtn = document.getElementById('importBtn');
+    const importFile = document.getElementById('importFile');
+
+    function renderStudents() {
+      const students = RSP.getStudents();
+      studentsTableBody.innerHTML = '';
+      students.sort((a,b) => a.name.localeCompare(b.name));
+      students.forEach((s, i) => {
+        const tr = document.createElement('tr');
+        const lastTs = s.picks[s.picks.length-1];
+        tr.innerHTML = `
+          <td>${i+1}</td>
+          <td><input class="inline-input" data-id="${s.id}" value="${escapeHtml(s.name)}" /></td>
+          <td><span class="pill" title="Times picked">${s.picks.length}</span></td>
+          <td>${lastTs ? RSP.relative(lastTs) : '<span class="muted">—</span>'}</td>
+          <td class="row-actions"><button data-del="${s.id}">Delete</button></td>
+        `;
+        studentsTableBody.appendChild(tr);
+      });
+    }
+
+    function renderHistory() {
+      const history = RSP.getHistory().slice().sort((a,b)=> a.timestamp - b.timestamp);
+      historyTableBody.innerHTML = '';
+      history.forEach((h, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${idx+1}</td><td>${escapeHtml(h.name)}</td><td title="${RSP.formatTime(h.timestamp)}">${RSP.relative(h.timestamp)}</td>`;
+        historyTableBody.appendChild(tr);
+      });
+      if (!history.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="3" class="muted" style="text-align:center;">No picks yet.</td>';
+        historyTableBody.appendChild(tr);
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    }
+
+    addBtn.addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      if (!name) return;
+      RSP.addStudent(name);
+      nameInput.value='';
+      renderStudents();
+    });
+    nameInput.addEventListener('keyup', e => { if (e.key==='Enter') addBtn.click(); });
+
+    studentsTableBody.addEventListener('change', e => {
+      if (e.target.matches('input.inline-input')) {
+        const id = e.target.getAttribute('data-id');
+        RSP.renameStudent(id, e.target.value);
+        renderStudents();
+        renderHistory();
+      }
+    });
+
+    studentsTableBody.addEventListener('click', e => {
+      if (e.target.matches('button[data-del]')) {
+        const id = e.target.getAttribute('data-del');
+        const student = RSP.getStudents().find(s=>s.id===id);
+        if (confirm('Delete ' + (student?student.name:'this student') + '?')) {
+          RSP.deleteStudent(id);
+          renderStudents();
+        }
+      }
+    });
+
+    resetCountsBtn.addEventListener('click', () => {
+      if (confirm('Reset all pick counts and clear history?')) { RSP.resetCounts(); renderStudents(); renderHistory(); }
+    });
+
+    clearAllBtn.addEventListener('click', () => {
+      if (confirm('Delete ALL students and history? This cannot be undone.')) { RSP.clearAll(); renderStudents(); renderHistory(); }
+    });
+
+    exportBtn.addEventListener('click', () => {
+      const data = RSP.load();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'random-student-picker-data.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=> URL.revokeObjectURL(url), 2000);
+    });
+
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', () => {
+      const file = importFile.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          if (!parsed.students || !Array.isArray(parsed.students)) throw new Error('Invalid format');
+          RSP.save(parsed);
+          renderStudents();
+          renderHistory();
+          alert('Import successful');
+        } catch (e) { alert('Import failed: ' + e.message); }
+      };
+      reader.readAsText(file);
+      importFile.value = '';
+    });
+
+    function refresh() { renderStudents(); renderHistory(); }
+    refresh();
+    setInterval(() => { renderStudents(); renderHistory(); }, 15000); // update relative times
+  </script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Random Student Picker</title>
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+  <header>
+    <div style="flex:1;font-weight:600;">Random Student Picker</div>
+    <nav><a href="settings.html">Settings</a></nav>
+  </header>
+  <main>
+    <h1>Picker</h1>
+    <p>Selects fairly: always chooses among students with the lowest pick count.</p>
+    <div class="picker-container">
+      <div class="dice-area" id="diceArea" style="display:none;">
+        <div class="dice-wrapper" id="diceWrapper"></div>
+      </div>
+      <div class="result" id="result"></div>
+      <button id="pickBtn">Pick Random Student</button>
+      <div class="status-line" id="statusLine"></div>
+    </div>
+  </main>
+  <footer>Data stored locally. <a class="inline-link" href="settings.html">Manage students</a>.</footer>
+  <script src="storage.js"></script>
+  <script>
+    const pickBtn = document.getElementById('pickBtn');
+    const resultEl = document.getElementById('result');
+  const diceArea = document.getElementById('diceArea');
+  const diceWrapper = document.getElementById('diceWrapper');
+    const statusLine = document.getElementById('statusLine');
+
+    function updateStatus() {
+      const students = RSP.getStudents();
+      if (!students.length) {
+        statusLine.textContent = 'No students yet. Go to Settings to add some.';
+      } else {
+        const min = Math.min(...students.map(s => s.picks.length));
+        const max = Math.max(...students.map(s => s.picks.length));
+        statusLine.textContent = 'Students: ' + students.length + ' | Pick count range: ' + min + ' - ' + max;
+      }
+    }
+
+    // Dice logic (3D cube)
+    const FACE_PATTERNS = {
+      1: [5],
+      2: [1,9],
+      3: [1,5,9],
+      4: [1,3,7,9],
+      5: [1,3,5,7,9],
+      6: [1,3,4,6,7,9]
+    };
+
+    function createFace(className, value) {
+      const face = document.createElement('div');
+      face.className = 'dice-face ' + className;
+      const pattern = FACE_PATTERNS[value];
+      for (let i=1;i<=9;i++) {
+        if (pattern.includes(i)) {
+          const pip = document.createElement('div');
+          pip.className = 'pip';
+          if (value === 1) pip.classList.add('big');
+          face.appendChild(pip);
+        } else {
+          face.appendChild(document.createElement('div'));
+        }
+      }
+      return face;
+    }
+
+    function buildDiceCube(initialValue) {
+      const dice = document.createElement('div');
+      dice.className = 'dice';
+      const core = document.createElement('div');
+      core.className = 'core';
+      const sizeHalf = 39; // half of 78px
+      // Faces mapping: front=1, right=2, top=3, bottom=4, left=5, back=6
+      const front = createFace('front',1); front.style.transform = `translateZ(${sizeHalf}px)`;
+      const back = createFace('back',6); back.style.transform = `rotateY(180deg) translateZ(${sizeHalf}px)`;
+      const right = createFace('right',2); right.style.transform = `rotateY(90deg) translateZ(${sizeHalf}px)`;
+      const left = createFace('left',5); left.style.transform = `rotateY(-90deg) translateZ(${sizeHalf}px)`;
+      const top = createFace('top',3); top.style.transform = `rotateX(90deg) translateZ(${sizeHalf}px)`;
+      const bottom = createFace('bottom',4); bottom.style.transform = `rotateX(-90deg) translateZ(${sizeHalf}px)`;
+      core.append(front, back, right, left, top, bottom);
+      dice.appendChild(core);
+      orientDiceToValue(dice, initialValue || 1); // initial
+      return dice;
+    }
+
+    function orientDiceToValue(dice, value) {
+      const core = dice.querySelector('.core');
+      // Orientation mapping
+      let rx=0, ry=0;
+      switch(value) {
+        case 1: rx=0; ry=0; break; // front
+        case 2: rx=0; ry=-90; break; // right
+        case 3: rx=-90; ry=0; break; // top
+        case 4: rx=90; ry=0; break; // bottom
+        case 5: rx=0; ry=90; break; // left
+        case 6: rx=0; ry=180; break; // back
+      }
+      core.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+      dice.dataset.value = value;
+    }
+
+    function orientDiceToValueSmooth(dice, value, current) {
+      const core = dice.querySelector('.core');
+      let baseRx=0, baseRy=0;
+      switch(value) {
+        case 1: baseRx=0; baseRy=0; break;
+        case 2: baseRx=0; baseRy=-90; break;
+        case 3: baseRx=-90; baseRy=0; break;
+        case 4: baseRx=90; baseRy=0; break;
+        case 5: baseRx=0; baseRy=90; break;
+        case 6: baseRx=0; baseRy=180; break;
+      }
+      // Choose multiples of 360 to minimize travel from current angles
+      function nearest(targetBase, currentAngle) {
+        let k = Math.round((currentAngle - targetBase)/360);
+        return targetBase + 360*k;
+      }
+      const targetRx = nearest(baseRx, current.angleX);
+      const targetRy = nearest(baseRy, current.angleY);
+      // Normalize Z toward nearest 360 multiple (remove spin) smoothly
+      const targetRz = 360 * Math.round(current.angleZ / 360);
+      core.style.transition = 'transform .55s cubic-bezier(.19,1.1,.22,1)';
+      requestAnimationFrame(()=> {
+        core.style.transform = `rotateX(${targetRx}deg) rotateY(${targetRy}deg) rotateZ(${targetRz}deg)`;
+      });
+      dice.dataset.value = value;
+    }
+
+    function randomInt(min, max) { return Math.floor(Math.random()*(max-min+1))+min; }
+
+  let animationFrame = null;
+  let diceObjects = [];
+
+    function startDiceAnimation() {
+      const count = randomInt(2,5);
+      diceWrapper.innerHTML='';
+      diceArea.style.display='block';
+      const areaW = diceArea.clientWidth;
+      const areaH = diceArea.clientHeight;
+      diceObjects = [];
+      for (let i=0;i<count;i++) {
+        const el = buildDiceCube(randomInt(1,6));
+        diceWrapper.appendChild(el);
+        const size = 78;
+        diceObjects.push({
+          el,
+          core: el.querySelector('.core'),
+          x: Math.random()*(areaW - size),
+          y: Math.random()*(areaH - size),
+          vx: (Math.random()*600 - 300),
+          vy: (Math.random()*600 - 300),
+          angleX: Math.random()*360,
+          angleY: Math.random()*360,
+          angleZ: Math.random()*360,
+          vax: (Math.random()*1080 - 540),
+          vay: (Math.random()*1080 - 540),
+          vaz: (Math.random()*1080 - 540)
+        });
+      }
+      const start = performance.now();
+      const duration = 1500; // ms
+      function step(now) {
+        const dt = (now - (step.last || now))/1000; step.last = now;
+        const elapsed = now - start;
+        const damping = 0.989; // less damping -> faster movement
+        const gravity = 380; // stronger gravity
+        const size = 78;
+        diceObjects.forEach(o => {
+          o.vy += gravity * dt; // gravity
+          o.vx *= damping; o.vy *= damping;
+          o.x += o.vx * dt; o.y += o.vy * dt;
+          if (o.x < 0) { o.x = 0; o.vx = Math.abs(o.vx)*0.75; }
+          if (o.x > areaW - size) { o.x = areaW - size; o.vx = -Math.abs(o.vx)*0.75; }
+          if (o.y < 0) { o.y = 0; o.vy = Math.abs(o.vy)*0.75; }
+          if (o.y > areaH - size) { o.y = areaH - size; o.vy = -Math.abs(o.vy)*0.55; }
+          o.angleX += o.vax * dt; o.angleY += o.vay * dt; o.angleZ += o.vaz * dt;
+          o.vax *= damping; o.vay *= damping; o.vaz *= damping;
+          o.el.style.transform = `translate3d(${o.x}px, ${o.y}px, 0)`;
+          o.core.style.transform = `rotateX(${o.angleX}deg) rotateY(${o.angleY}deg) rotateZ(${o.angleZ}deg)`;
+        });
+        if (elapsed < duration) {
+          animationFrame = requestAnimationFrame(step);
+        } else {
+          diceObjects.forEach(o => {
+            o.el.classList.add('landed');
+            const finalVal = randomInt(1,6);
+            orientDiceToValueSmooth(o.el, finalVal, { angleX:o.angleX, angleY:o.angleY, angleZ:o.angleZ });
+          });
+        }
+      }
+      animationFrame = requestAnimationFrame(step);
+    }
+
+    function stopDiceAnimation() {
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+    }
+
+    pickBtn.addEventListener('click', () => {
+      const students = RSP.getStudents();
+      if (!students.length) { alert('Add students first in Settings.'); return; }
+      pickBtn.disabled = true;
+      resultEl.textContent = '';
+      startDiceAnimation();
+      setTimeout(() => {
+        const picked = RSP.pickFair();
+        stopDiceAnimation();
+        if (picked) {
+          resultEl.textContent = picked.name;
+        } else {
+          resultEl.textContent = 'No student selected.';
+        }
+        pickBtn.disabled = false;
+        updateStatus();
+      }, 1500);
+    });
+
+    updateStatus();
+  </script>
+</body>
+</html>
