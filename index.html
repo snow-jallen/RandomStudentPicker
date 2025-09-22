@@ -14,7 +14,6 @@
   <main>
     <h1>Picker</h1>
     <div id="currentGroupInfo" style="margin-bottom:10px; font-size:14px; color:#666;"></div>
-    <p>Selects fairly: always chooses among students with the lowest pick count.</p>
     <div class="picker-container">
       <div class="dice-area" id="diceArea" style="display:none;">
         <div class="dice-wrapper" id="diceWrapper"></div>
@@ -39,15 +38,23 @@
       const students = RSP.getStudents();
 
       if (currentGroup) {
-        currentGroupInfo.textContent = `Group: ${currentGroup.title}`;
+        const cycles = currentGroup.cycles || 1;
+        currentGroupInfo.textContent = `Group: ${currentGroup.title} (${cycles} cycle${cycles > 1 ? 's' : ''} per student)`;
       }
 
       if (!students.length) {
         statusLine.textContent = 'No students yet. Go to Settings to add some.';
       } else {
-        const min = Math.min(...students.map(s => s.picks.length));
-        const max = Math.max(...students.map(s => s.picks.length));
-        statusLine.textContent = 'Students: ' + students.length + ' | Pick count range: ' + min + ' - ' + max;
+        const counts = students.map(s => s.picks.length);
+        const min = Math.min(...counts);
+        const max = Math.max(...counts);
+        const cycles = currentGroup ? currentGroup.cycles || 1 : 1;
+
+        // Show cycle progress
+        const completedStudents = students.filter(s => s.picks.length >= cycles).length;
+        const cycleProgress = cycles > 1 ? ` | Cycle progress: ${completedStudents}/${students.length} complete` : '';
+
+        statusLine.textContent = `Students: ${students.length} | Pick count range: ${min}-${max}/${cycles}${cycleProgress}`;
       }
     }
 
@@ -216,7 +223,7 @@
       resultEl.textContent = '';
       startDiceAnimation();
       setTimeout(() => {
-        const picked = RSP.pickFair();
+        const picked = RSP.pickRandom();
         stopDiceAnimation();
         if (picked) {
           resultEl.textContent = picked.name;

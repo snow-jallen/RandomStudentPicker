@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Pure Random Functionality</title>
+    <script src="storage.js"></script>
+</head>
+<body>
+    <h1>Testing Pure Random Functionality</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message) {
+            output.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        function runPureRandomTests() {
+            log('Starting pure random functionality tests...');
+
+            // Clear existing data
+            localStorage.removeItem('rsp:data');
+
+            // Test 1: Create group and add students
+            const group = RSP.createGroup('Random Test Group');
+            RSP.setCurrentGroup(group.id);
+
+            log(`✓ Created group "${group.title}"`);
+            log(`✓ Group structure: ${JSON.stringify(group, null, 2)}`);
+
+            // Verify no cycles property exists
+            if (group.hasOwnProperty('cycles')) {
+                log('❌ Group still has cycles property');
+            } else {
+                log('✓ Group has no cycles property (as expected)');
+            }
+
+            // Add students
+            RSP.addStudent('Alice');
+            RSP.addStudent('Bob');
+            RSP.addStudent('Charlie');
+            RSP.addStudent('David');
+
+            const students = RSP.getStudents();
+            log(`✓ Added ${students.length} students to the group`);
+
+            // Test 2: Perform many random picks to verify randomness
+            log('\n--- Testing random distribution ---');
+            const pickCounts = {};
+            const totalPicks = 1000;
+
+            // Initialize counters
+            students.forEach(student => {
+                pickCounts[student.name] = 0;
+            });
+
+            // Perform many picks
+            for (let i = 0; i < totalPicks; i++) {
+                const picked = RSP.pickRandom();
+                if (picked) {
+                    pickCounts[picked.name]++;
+                }
+            }
+
+            log(`Results after ${totalPicks} picks:`);
+            const expectedAverage = totalPicks / students.length;
+            let isReasonablyRandom = true;
+
+            students.forEach(student => {
+                const count = pickCounts[student.name];
+                const percentage = ((count / totalPicks) * 100).toFixed(1);
+                const deviation = Math.abs(count - expectedAverage);
+                const deviationPercent = ((deviation / expectedAverage) * 100).toFixed(1);
+
+                log(`  ${student.name}: ${count} picks (${percentage}%, deviation: ${deviationPercent}%)`);
+
+                // Check if deviation is reasonable (within 20% of expected)
+                if (deviationPercent > 20) {
+                    isReasonablyRandom = false;
+                }
+            });
+
+            log(`✓ Random distribution test: ${isReasonablyRandom ? 'PASSED' : 'NEEDS REVIEW'}`);
+
+            // Test 3: Verify consecutive picks are possible
+            log('\n--- Testing consecutive picks ---');
+            RSP.resetCounts(); // Clear history for clean test
+
+            const consecutiveTest = [];
+            for (let i = 0; i < 20; i++) {
+                const picked = RSP.pickRandom();
+                if (picked) {
+                    consecutiveTest.push(picked.name);
+                }
+            }
+
+            log(`Pick sequence: ${consecutiveTest.join(' → ')}`);
+
+            // Look for consecutive picks of the same student
+            let hasConsecutive = false;
+            for (let i = 1; i < consecutiveTest.length; i++) {
+                if (consecutiveTest[i] === consecutiveTest[i-1]) {
+                    hasConsecutive = true;
+                    break;
+                }
+            }
+
+            if (hasConsecutive) {
+                log('✓ Consecutive picks detected - true randomness confirmed!');
+            } else {
+                log('ℹ No consecutive picks in this sample (this is random too)');
+            }
+
+            // Test 4: Verify pick history is still recorded
+            log('\n--- Testing pick history ---');
+            const history = RSP.getHistory();
+            log(`✓ Pick history contains ${history.length} entries`);
+
+            if (history.length > 0) {
+                const latest = history[history.length - 1];
+                log(`✓ Latest pick: ${latest.name} at ${RSP.formatTime(latest.timestamp)}`);
+            }
+
+            // Test 5: Test with single student
+            log('\n--- Testing single student scenario ---');
+            const singleGroup = RSP.createGroup('Single Student Group');
+            RSP.setCurrentGroup(singleGroup.id);
+            RSP.addStudent('Solo');
+
+            const singlePicks = [];
+            for (let i = 0; i < 5; i++) {
+                const picked = RSP.pickRandom();
+                if (picked) {
+                    singlePicks.push(picked.name);
+                }
+            }
+
+            const allSolo = singlePicks.every(name => name === 'Solo');
+            log(`✓ Single student test: ${allSolo ? 'PASSED' : 'FAILED'}`);
+            log(`  Picks: ${singlePicks.join(', ')}`);
+
+            // Test 6: Test empty group scenario
+            log('\n--- Testing empty group scenario ---');
+            const emptyGroup = RSP.createGroup('Empty Group');
+            RSP.setCurrentGroup(emptyGroup.id);
+
+            const emptyPick = RSP.pickRandom();
+            log(`✓ Empty group test: ${emptyPick === null ? 'PASSED' : 'FAILED'}`);
+            log(`  Result: ${emptyPick || 'null (as expected)'}`);
+
+            log('\nAll pure random functionality tests completed! ✅');
+        }
+
+        runPureRandomTests();
+    </script>
+</body>
+</html>

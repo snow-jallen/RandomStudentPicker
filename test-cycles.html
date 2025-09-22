@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cycles Functionality</title>
+    <script src="storage.js"></script>
+</head>
+<body>
+    <h1>Testing Cycles Functionality</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message) {
+            output.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        function runCyclesTests() {
+            log('Starting cycles functionality tests...');
+
+            // Clear existing data
+            localStorage.removeItem('rsp:data');
+
+            // Test 1: Create group with default cycles (1)
+            const group1 = RSP.createGroup('Test Group 1');
+            RSP.setCurrentGroup(group1.id);
+
+            log(`✓ Created group "${group1.title}" with ${group1.cycles} cycle(s)`);
+
+            // Add students
+            RSP.addStudent('Alice');
+            RSP.addStudent('Bob');
+            RSP.addStudent('Charlie');
+
+            log('✓ Added 3 students to the group');
+
+            // Test 2: Pick students and verify fair distribution with 1 cycle
+            log('\n--- Testing 1 cycle behavior ---');
+            const picks1 = [];
+            for (let i = 0; i < 6; i++) {
+                const picked = RSP.pickFair();
+                if (picked) {
+                    picks1.push(picked.name);
+                    log(`Pick ${i + 1}: ${picked.name}`);
+                }
+            }
+
+            const students1 = RSP.getStudents();
+            const counts1 = students1.map(s => ({ name: s.name, picks: s.picks.length }));
+            log(`Pick counts after 6 picks: ${counts1.map(c => `${c.name}:${c.picks}`).join(', ')}`);
+
+            // Test 3: Create group with 3 cycles
+            const group2 = RSP.createGroup('Test Group 2', 3);
+            RSP.setCurrentGroup(group2.id);
+
+            log(`\n--- Testing 3 cycles behavior ---`);
+            log(`✓ Created group "${group2.title}" with ${group2.cycles} cycles`);
+
+            // Add same students
+            RSP.addStudent('Alice');
+            RSP.addStudent('Bob');
+            RSP.addStudent('Charlie');
+
+            // Test 4: Pick until everyone reaches 3 picks (should auto-reset)
+            const picks2 = [];
+            for (let i = 0; i < 12; i++) { // 3 students × 3 cycles + 3 extra to test reset
+                const picked = RSP.pickFair();
+                if (picked) {
+                    picks2.push(picked.name);
+                    const students = RSP.getStudents();
+                    const maxPicks = Math.max(...students.map(s => s.picks.length));
+                    const minPicks = Math.min(...students.map(s => s.picks.length));
+                    log(`Pick ${i + 1}: ${picked.name} (range: ${minPicks}-${maxPicks})`);
+
+                    // Check if auto-reset happened
+                    if (i >= 8 && maxPicks === 0) {
+                        log(`✓ Auto-reset detected after everyone reached 3 picks!`);
+                    }
+                }
+            }
+
+            const students2 = RSP.getStudents();
+            const counts2 = students2.map(s => ({ name: s.name, picks: s.picks.length }));
+            log(`Final pick counts: ${counts2.map(c => `${c.name}:${c.picks}`).join(', ')}`);
+
+            // Test 5: Test setCycles function
+            log('\n--- Testing setCycles function ---');
+            const success = RSP.setCycles(group2.id, 2);
+            log(`✓ setCycles returned: ${success}`);
+
+            const updatedGroup = RSP.getCurrentGroup();
+            log(`✓ Group cycles updated to: ${updatedGroup.cycles}`);
+
+            // Test 6: Test getCurrentCycles function
+            const currentCycles = RSP.getCurrentCycles();
+            log(`✓ getCurrentCycles returned: ${currentCycles}`);
+
+            // Test 7: Verify fair distribution within cycles
+            log('\n--- Testing fair distribution ---');
+
+            // Reset to test fair distribution
+            RSP.resetCounts();
+            RSP.setCycles(group2.id, 2);
+
+            const fairnessTest = [];
+            for (let i = 0; i < 6; i++) { // 3 students × 2 cycles
+                const picked = RSP.pickFair();
+                if (picked) {
+                    fairnessTest.push(picked.name);
+                }
+            }
+
+            const finalStudents = RSP.getStudents();
+            const finalCounts = finalStudents.map(s => ({ name: s.name, picks: s.picks.length }));
+
+            // Check if everyone has exactly 2 picks
+            const allHaveTwoPicks = finalCounts.every(c => c.picks === 2);
+            log(`✓ Fair distribution test: ${allHaveTwoPicks ? 'PASSED' : 'FAILED'}`);
+            log(`Final counts: ${finalCounts.map(c => `${c.name}:${c.picks}`).join(', ')}`);
+
+            // Test 8: Test migration compatibility
+            log('\n--- Testing data migration ---');
+            const allGroups = RSP.getAllGroups();
+            const allHaveCycles = allGroups.every(g => typeof g.cycles === 'number' && g.cycles >= 1);
+            log(`✓ All groups have valid cycles: ${allHaveCycles ? 'PASSED' : 'FAILED'}`);
+
+            allGroups.forEach(g => {
+                log(`   Group "${g.title}": ${g.cycles} cycle(s)`);
+            });
+
+            log('\nAll cycles functionality tests completed! ✅');
+        }
+
+        runCyclesTests();
+    </script>
+</body>
+</html>

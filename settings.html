@@ -21,9 +21,15 @@
       <button id="renameGroupBtn" class="secondary small" style="white-space:nowrap;">Rename</button>
       <button id="deleteGroupBtn" class="danger small" style="white-space:nowrap;">Delete</button>
     </div>
-    <div class="flex" style="margin-bottom:30px;">
+    <div class="flex" style="margin-bottom:15px;">
       <input id="newGroupName" class="grow" type="text" placeholder="New group name" />
       <button id="createGroupBtn" style="white-space:nowrap;">Create Group</button>
+    </div>
+    <div class="flex" style="margin-bottom:30px; align-items:center;">
+      <label for="cyclesInput" style="margin-right:10px; white-space:nowrap;">Cycles per student:</label>
+      <input id="cyclesInput" type="number" min="1" max="100" value="1" style="width:80px; margin-right:10px;" />
+      <button id="setCyclesBtn" class="secondary small" style="white-space:nowrap;">Update</button>
+      <span id="cyclesInfo" style="margin-left:10px; font-size:12px; color:#666;"></span>
     </div>
 
     <h1>Manage Students</h1>
@@ -42,7 +48,7 @@
     <h2 style="margin-top:30px;">Students</h2>
     <table id="studentsTable">
       <thead>
-        <tr><th style="width:40px;">#</th><th>Name</th><th>Count</th><th>Last Pick</th><th>Actions</th></tr>
+        <tr><th style="width:40px;">#</th><th>Name</th><th>Count</th><th>Actions</th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -65,6 +71,9 @@
     const renameGroupBtn = document.getElementById('renameGroupBtn');
     const deleteGroupBtn = document.getElementById('deleteGroupBtn');
     const currentGroupTitle = document.getElementById('currentGroupTitle');
+    const cyclesInput = document.getElementById('cyclesInput');
+    const setCyclesBtn = document.getElementById('setCyclesBtn');
+    const cyclesInfo = document.getElementById('cyclesInfo');
 
     // Student management elements
     const nameInput = document.getElementById('studentName');
@@ -76,6 +85,23 @@
     const exportBtn = document.getElementById('exportBtn');
     const importBtn = document.getElementById('importBtn');
     const importFile = document.getElementById('importFile');
+
+    function updateCyclesInfo() {
+      const currentGroup = RSP.getCurrentGroup();
+      if (!currentGroup) return;
+
+      const students = RSP.getStudents();
+      const cycles = currentGroup.cycles || 1;
+
+      if (students.length === 0) {
+        cyclesInfo.textContent = `Each student can be picked ${cycles} time(s)`;
+      } else {
+        const counts = students.map(s => s.picks.length);
+        const maxCount = Math.max(...counts);
+        const minCount = Math.min(...counts);
+        cyclesInfo.textContent = `Each student can be picked ${cycles} time(s). Current: ${minCount}-${maxCount}`;
+      }
+    }
 
     function renderGroups() {
       const groups = RSP.getAllGroups();
@@ -92,6 +118,8 @@
 
       if (currentGroup) {
         currentGroupTitle.textContent = `Current group: ${currentGroup.title}`;
+        cyclesInput.value = currentGroup.cycles || 1;
+        updateCyclesInfo();
       }
     }
 
@@ -101,12 +129,10 @@
       students.sort((a,b) => a.name.localeCompare(b.name));
       students.forEach((s, i) => {
         const tr = document.createElement('tr');
-        const lastTs = s.picks[s.picks.length-1];
         tr.innerHTML = `
           <td>${i+1}</td>
           <td><input class="inline-input" data-id="${s.id}" value="${escapeHtml(s.name)}" /></td>
           <td><span class="pill" title="Times picked">${s.picks.length}</span></td>
-          <td>${lastTs ? RSP.relative(lastTs) : '<span class="muted">—</span>'}</td>
           <td class="row-actions"><button data-del="${s.id}">Delete</button></td>
         `;
         studentsTableBody.appendChild(tr);
@@ -149,6 +175,7 @@
 
       nameInput.value = '';
       renderStudents();
+      updateCyclesInfo();
 
       if (addedCount > 1) {
         // Optional: Show feedback for multiple additions
@@ -212,6 +239,21 @@
       };
       reader.readAsText(file);
       importFile.value = '';
+    });
+
+    // Cycles management event listeners
+    setCyclesBtn.addEventListener('click', () => {
+      const currentGroup = RSP.getCurrentGroup();
+      if (!currentGroup) return;
+      const cycles = parseInt(cyclesInput.value);
+      if (cycles >= 1) {
+        RSP.setCycles(currentGroup.id, cycles);
+        updateCyclesInfo();
+      }
+    });
+
+    cyclesInput.addEventListener('keyup', e => {
+      if (e.key === 'Enter') setCyclesBtn.click();
     });
 
     // Group management event listeners

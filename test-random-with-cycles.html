@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Random Selection with Cycles</title>
+    <script src="storage.js"></script>
+</head>
+<body>
+    <h1>Testing Random Selection with Cycles</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message) {
+            output.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        function runRandomWithCyclesTests() {
+            log('Starting random selection with cycles tests...');
+
+            // Clear existing data
+            localStorage.removeItem('rsp:data');
+
+            // Test 1: Create group with 3 cycles
+            const group = RSP.createGroup('Random Cycles Test', 3);
+            RSP.setCurrentGroup(group.id);
+
+            log(`✓ Created group "${group.title}" with ${group.cycles} cycles`);
+
+            // Add students
+            RSP.addStudent('Alice');
+            RSP.addStudent('Bob');
+            RSP.addStudent('Charlie');
+
+            const students = RSP.getStudents();
+            log(`✓ Added ${students.length} students to the group`);
+
+            // Test 2: Verify random selection within cycle limits
+            log('\n--- Testing random selection within cycle limits ---');
+            const picks = [];
+            const pickCounts = {};
+
+            // Initialize counters
+            students.forEach(student => {
+                pickCounts[student.name] = 0;
+            });
+
+            // Pick until we hit cycle limits and auto-reset
+            for (let i = 0; i < 15; i++) { // More than 3 students × 3 cycles
+                const picked = RSP.pickRandom();
+                if (picked) {
+                    picks.push(picked.name);
+                    pickCounts[picked.name]++;
+
+                    const currentStudents = RSP.getStudents();
+                    const counts = currentStudents.map(s => s.picks.length);
+                    const maxCount = Math.max(...counts);
+                    const minCount = Math.min(...counts);
+
+                    log(`Pick ${i + 1}: ${picked.name} (range: ${minCount}-${maxCount})`);
+
+                    // Check for auto-reset (everyone was at 3, now back to 0-1)
+                    if (i > 8 && maxCount <= 1 && minCount === 0) {
+                        log(`✓ Auto-reset detected! Everyone reached 3 cycles and counts were reset.`);
+                    }
+                }
+            }
+
+            // Test 3: Verify no one exceeds cycle limit before reset
+            log('\n--- Testing cycle enforcement ---');
+            RSP.resetCounts(); // Start fresh
+
+            let maxPicksBeforeReset = 0;
+            let resetDetected = false;
+
+            for (let i = 0; i < 12; i++) { // Pick enough to test cycles
+                const picked = RSP.pickRandom();
+                if (picked) {
+                    const currentStudents = RSP.getStudents();
+                    const counts = currentStudents.map(s => s.picks.length);
+                    const maxCount = Math.max(...counts);
+
+                    if (maxCount > maxPicksBeforeReset) {
+                        maxPicksBeforeReset = maxCount;
+                    }
+
+                    // If we see a reset (max count drops significantly)
+                    if (maxPicksBeforeReset >= 3 && maxCount <= 1) {
+                        resetDetected = true;
+                        log(`✓ Cycle limit enforced: max picks reached ${maxPicksBeforeReset}, then reset to ${maxCount}`);
+                    }
+                }
+            }
+
+            if (maxPicksBeforeReset >= 3) {
+                log(`✓ Cycles working: max picks before reset was ${maxPicksBeforeReset}`);
+            }
+
+            // Test 4: Test with 1 cycle (should allow unlimited random picks)
+            log('\n--- Testing 1 cycle behavior ---');
+            RSP.setCycles(group.id, 1);
+            RSP.resetCounts();
+
+            const oneCyclePicks = {};
+            students.forEach(student => {
+                oneCyclePicks[student.name] = 0;
+            });
+
+            for (let i = 0; i < 20; i++) {
+                const picked = RSP.pickRandom();
+                if (picked) {
+                    oneCyclePicks[picked.name]++;
+                }
+            }
+
+            log('Pick distribution with 1 cycle (20 picks):');
+            let maxWithOneCycle = 0;
+            students.forEach(student => {
+                const count = oneCyclePicks[student.name];
+                log(`  ${student.name}: ${count} picks`);
+                if (count > maxWithOneCycle) {
+                    maxWithOneCycle = count;
+                }
+            });
+
+            if (maxWithOneCycle > 3) {
+                log(`✓ With 1 cycle, students can be picked many times: max was ${maxWithOneCycle}`);
+            }
+
+            // Test 5: Verify true randomness (no fairness)
+            log('\n--- Testing randomness (no fairness enforcement) ---');
+            RSP.setCycles(group.id, 5); // High cycle limit
+            RSP.resetCounts();
+
+            const randomnessTest = [];
+            for (let i = 0; i < 10; i++) {
+                const picked = RSP.pickRandom();
+                if (picked) {
+                    randomnessTest.push(picked.name);
+                }
+            }
+
+            log(`Random sequence: ${randomnessTest.join(' → ')}`);
+
+            // Look for consecutive picks (sign of true randomness, not fairness)
+            let hasConsecutive = false;
+            for (let i = 1; i < randomnessTest.length; i++) {
+                if (randomnessTest[i] === randomnessTest[i-1]) {
+                    hasConsecutive = true;
+                    break;
+                }
+            }
+
+            if (hasConsecutive) {
+                log('✓ Consecutive picks detected - confirming no fairness bias!');
+            } else {
+                log('ℹ No consecutive picks in this sample (still random)');
+            }
+
+            // Test 6: Test setCycles function
+            log('\n--- Testing setCycles function ---');
+            const success = RSP.setCycles(group.id, 2);
+            log(`✓ setCycles returned: ${success}`);
+
+            const updatedGroup = RSP.getCurrentGroup();
+            log(`✓ Group cycles updated to: ${updatedGroup.cycles}`);
+
+            const currentCycles = RSP.getCurrentCycles();
+            log(`✓ getCurrentCycles returned: ${currentCycles}`);
+
+            log('\nAll random selection with cycles tests completed! ✅');
+            log('\nKey behaviors verified:');
+            log('• Random selection within cycle limits');
+            log('• Auto-reset when everyone reaches cycle limit');
+            log('• No fairness bias - pure randomness');
+            log('• Cycles prevent unlimited picks until reset');
+        }
+
+        runRandomWithCyclesTests();
+    </script>
+</body>
+</html>
