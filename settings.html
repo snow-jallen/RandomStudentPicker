@@ -12,9 +12,24 @@
     <nav><a href="index.html">Picker</a></nav>
   </header>
   <main>
+    <h1>Group Management</h1>
+    <div class="flex" style="margin-bottom:15px;">
+      <select id="groupSelect" class="grow" style="margin-right:10px;">
+        <!-- Groups will be populated here -->
+      </select>
+      <button id="copyGroupBtn" class="secondary small" style="white-space:nowrap;">Copy</button>
+      <button id="renameGroupBtn" class="secondary small" style="white-space:nowrap;">Rename</button>
+      <button id="deleteGroupBtn" class="danger small" style="white-space:nowrap;">Delete</button>
+    </div>
+    <div class="flex" style="margin-bottom:30px;">
+      <input id="newGroupName" class="grow" type="text" placeholder="New group name" />
+      <button id="createGroupBtn" style="white-space:nowrap;">Create Group</button>
+    </div>
+
     <h1>Manage Students</h1>
+    <div id="currentGroupTitle" style="margin-bottom:10px; font-weight:500; color:#666;"></div>
     <div class="flex" style="margin-bottom:10px;">
-      <input id="studentName" class="grow" type="text" placeholder="Student name" />
+      <input id="studentName" class="grow" type="text" placeholder="Student name (or comma-separated list)" />
       <button id="addBtn" style="white-space:nowrap;">Add</button>
     </div>
     <div class="toolbar">
@@ -42,6 +57,16 @@
   <footer><a class="inline-link" href="index.html">Go to Picker</a></footer>
   <script src="storage.js"></script>
   <script>
+    // Group management elements
+    const groupSelect = document.getElementById('groupSelect');
+    const newGroupNameInput = document.getElementById('newGroupName');
+    const createGroupBtn = document.getElementById('createGroupBtn');
+    const copyGroupBtn = document.getElementById('copyGroupBtn');
+    const renameGroupBtn = document.getElementById('renameGroupBtn');
+    const deleteGroupBtn = document.getElementById('deleteGroupBtn');
+    const currentGroupTitle = document.getElementById('currentGroupTitle');
+
+    // Student management elements
     const nameInput = document.getElementById('studentName');
     const addBtn = document.getElementById('addBtn');
     const studentsTableBody = document.querySelector('#studentsTable tbody');
@@ -51,6 +76,24 @@
     const exportBtn = document.getElementById('exportBtn');
     const importBtn = document.getElementById('importBtn');
     const importFile = document.getElementById('importFile');
+
+    function renderGroups() {
+      const groups = RSP.getAllGroups();
+      const currentGroup = RSP.getCurrentGroup();
+      groupSelect.innerHTML = '';
+
+      groups.forEach(group => {
+        const option = document.createElement('option');
+        option.value = group.id;
+        option.textContent = group.title;
+        option.selected = currentGroup && group.id === currentGroup.id;
+        groupSelect.appendChild(option);
+      });
+
+      if (currentGroup) {
+        currentGroupTitle.textContent = `Current group: ${currentGroup.title}`;
+      }
+    }
 
     function renderStudents() {
       const students = RSP.getStudents();
@@ -90,11 +133,27 @@
     }
 
     addBtn.addEventListener('click', () => {
-      const name = nameInput.value.trim();
-      if (!name) return;
-      RSP.addStudent(name);
-      nameInput.value='';
+      const input = nameInput.value.trim();
+      if (!input) return;
+
+      // Split by comma and process each name
+      const names = input.split(',').map(name => name.trim()).filter(name => name.length > 0);
+      let addedCount = 0;
+
+      names.forEach(name => {
+        if (name) {
+          RSP.addStudent(name);
+          addedCount++;
+        }
+      });
+
+      nameInput.value = '';
       renderStudents();
+
+      if (addedCount > 1) {
+        // Optional: Show feedback for multiple additions
+        console.log(`Added ${addedCount} students`);
+      }
     });
     nameInput.addEventListener('keyup', e => { if (e.key==='Enter') addBtn.click(); });
 
@@ -155,7 +214,78 @@
       importFile.value = '';
     });
 
-    function refresh() { renderStudents(); renderHistory(); }
+    // Group management event listeners
+    groupSelect.addEventListener('change', () => {
+      RSP.setCurrentGroup(groupSelect.value);
+      renderGroups();
+      renderStudents();
+      renderHistory();
+    });
+
+    createGroupBtn.addEventListener('click', () => {
+      const name = newGroupNameInput.value.trim();
+      if (!name) return;
+      const group = RSP.createGroup(name);
+      if (group) {
+        RSP.setCurrentGroup(group.id);
+        newGroupNameInput.value = '';
+        renderGroups();
+        renderStudents();
+        renderHistory();
+      }
+    });
+
+    newGroupNameInput.addEventListener('keyup', e => {
+      if (e.key === 'Enter') createGroupBtn.click();
+    });
+
+    copyGroupBtn.addEventListener('click', () => {
+      const currentGroup = RSP.getCurrentGroup();
+      if (!currentGroup) return;
+      const newName = prompt(`Copy "${currentGroup.title}" to new group.\nEnter name for the new group:`, currentGroup.title + ' Copy');
+      if (newName && newName.trim()) {
+        const newGroup = RSP.copyGroup(currentGroup.id, newName.trim());
+        if (newGroup) {
+          RSP.setCurrentGroup(newGroup.id);
+          renderGroups();
+          renderStudents();
+          renderHistory();
+        }
+      }
+    });
+
+    renameGroupBtn.addEventListener('click', () => {
+      const currentGroup = RSP.getCurrentGroup();
+      if (!currentGroup) return;
+      const newName = prompt('Enter new group name:', currentGroup.title);
+      if (newName && newName.trim()) {
+        RSP.renameGroup(currentGroup.id, newName.trim());
+        renderGroups();
+      }
+    });
+
+    deleteGroupBtn.addEventListener('click', () => {
+      const currentGroup = RSP.getCurrentGroup();
+      if (!currentGroup) return;
+      const groups = RSP.getAllGroups();
+      if (groups.length <= 1) {
+        alert('Cannot delete the last group.');
+        return;
+      }
+      if (confirm(`Delete group "${currentGroup.title}" and all its students? This cannot be undone.`)) {
+        if (RSP.deleteGroup(currentGroup.id)) {
+          renderGroups();
+          renderStudents();
+          renderHistory();
+        }
+      }
+    });
+
+    function refresh() {
+      renderGroups();
+      renderStudents();
+      renderHistory();
+    }
     refresh();
     setInterval(() => { renderStudents(); renderHistory(); }, 15000); // update relative times
   </script>

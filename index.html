@@ -13,6 +13,7 @@
   </header>
   <main>
     <h1>Picker</h1>
+    <div id="currentGroupInfo" style="margin-bottom:10px; font-size:14px; color:#666;"></div>
     <p>Selects fairly: always chooses among students with the lowest pick count.</p>
     <div class="picker-container">
       <div class="dice-area" id="diceArea" style="display:none;">
@@ -31,9 +32,16 @@
   const diceArea = document.getElementById('diceArea');
   const diceWrapper = document.getElementById('diceWrapper');
     const statusLine = document.getElementById('statusLine');
+    const currentGroupInfo = document.getElementById('currentGroupInfo');
 
     function updateStatus() {
+      const currentGroup = RSP.getCurrentGroup();
       const students = RSP.getStudents();
+
+      if (currentGroup) {
+        currentGroupInfo.textContent = `Group: ${currentGroup.title}`;
+      }
+
       if (!students.length) {
         statusLine.textContent = 'No students yet. Go to Settings to add some.';
       } else {

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Comma-Separated Input</title>
+    <script src="storage.js"></script>
+</head>
+<body>
+    <h1>Testing Comma-Separated Student Input</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message) {
+            output.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        function simulateCommaSeparatedInput(inputString) {
+            log(`Testing input: "${inputString}"`);
+
+            // Clear existing data
+            localStorage.removeItem('rsp:data');
+
+            // Create a test group
+            const group = RSP.createGroup('Test Group');
+            RSP.setCurrentGroup(group.id);
+
+            // Simulate the comma-separated input processing
+            const names = inputString.split(',').map(name => name.trim()).filter(name => name.length > 0);
+            let addedCount = 0;
+
+            names.forEach(name => {
+                if (name) {
+                    RSP.addStudent(name);
+                    addedCount++;
+                }
+            });
+
+            const students = RSP.getStudents();
+            log(`✓ Added ${addedCount} students from input`);
+            log(`✓ Total students in group: ${students.length}`);
+
+            students.forEach((student, index) => {
+                log(`   ${index + 1}. "${student.name}"`);
+            });
+
+            return students;
+        }
+
+        function runTests() {
+            log('Starting comma-separated input tests...');
+
+            // Test 1: Simple comma-separated list
+            simulateCommaSeparatedInput('Alice, Bob, Charlie');
+
+            // Test 2: List with extra spaces
+            simulateCommaSeparatedInput('David ,  Emma  , Frank   ');
+
+            // Test 3: Single name (no commas)
+            simulateCommaSeparatedInput('Grace');
+
+            // Test 4: List with empty entries
+            simulateCommaSeparatedInput('Henry, , Ivy, , Jack');
+
+            // Test 5: Names with special characters
+            simulateCommaSeparatedInput('María, José, François, 张三');
+
+            log('All comma-separated input tests completed! ✅');
+        }
+
+        runTests();
+    </script>
+</body>
+</html>

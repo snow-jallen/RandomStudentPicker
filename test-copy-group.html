@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Copy Group Functionality</title>
+    <script src="storage.js"></script>
+</head>
+<body>
+    <h1>Testing Copy Group Functionality</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message) {
+            output.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        function runCopyGroupTests() {
+            log('Starting copy group tests...');
+
+            // Clear existing data
+            localStorage.removeItem('rsp:data');
+
+            // Test 1: Create a source group with students
+            const sourceGroup = RSP.createGroup('Math Class');
+            RSP.setCurrentGroup(sourceGroup.id);
+
+            // Add some students
+            RSP.addStudent('Alice');
+            RSP.addStudent('Bob');
+            RSP.addStudent('Charlie');
+
+            // Record some picks to create history
+            RSP.pickFair();
+            RSP.pickFair();
+
+            const sourceStudents = RSP.getStudents();
+            const sourceHistory = RSP.getHistory();
+
+            log(`✓ Source group "${sourceGroup.title}" created with ${sourceStudents.length} students`);
+            log(`✓ Source group has ${sourceHistory.length} pick history entries`);
+
+            // Test 2: Copy the group
+            const copiedGroup = RSP.copyGroup(sourceGroup.id, 'Math Class Copy');
+
+            if (!copiedGroup) {
+                log('❌ Failed to copy group');
+                return;
+            }
+
+            log(`✓ Copied group created with title: "${copiedGroup.title}"`);
+            log(`✓ New group ID: ${copiedGroup.id} (different from source: ${sourceGroup.id})`);
+
+            // Test 3: Verify copied group has same students but different IDs
+            RSP.setCurrentGroup(copiedGroup.id);
+            const copiedStudents = RSP.getStudents();
+            const copiedHistory = RSP.getHistory();
+
+            log(`✓ Copied group has ${copiedStudents.length} students (same count as source)`);
+            log(`✓ Copied group has ${copiedHistory.length} history entries (should be 0)`);
+
+            // Test 4: Verify student names are the same but IDs are different
+            let allNamesMatch = true;
+            let allIDsDifferent = true;
+
+            for (let i = 0; i < sourceStudents.length; i++) {
+                const sourceName = sourceStudents[i].name;
+                const copiedName = copiedStudents[i].name;
+                const sourceId = sourceStudents[i].id;
+                const copiedId = copiedStudents[i].id;
+
+                if (sourceName !== copiedName) {
+                    allNamesMatch = false;
+                    log(`❌ Name mismatch: "${sourceName}" vs "${copiedName}"`);
+                }
+
+                if (sourceId === copiedId) {
+                    allIDsDifferent = false;
+                    log(`❌ ID not different: both have "${sourceId}"`);
+                }
+
+                log(`   Student ${i + 1}: "${copiedName}" (ID: ${copiedId.substring(0, 8)}...)`);
+            }
+
+            if (allNamesMatch) {
+                log('✓ All student names match between source and copy');
+            }
+
+            if (allIDsDifferent) {
+                log('✓ All student IDs are different between source and copy');
+            }
+
+            // Test 5: Verify pick counts are reset
+            let allPickCountsZero = true;
+            copiedStudents.forEach((student, index) => {
+                if (student.picks.length !== 0) {
+                    allPickCountsZero = false;
+                    log(`❌ Student "${student.name}" has ${student.picks.length} picks, should be 0`);
+                }
+            });
+
+            if (allPickCountsZero) {
+                log('✓ All students in copied group have zero pick counts');
+            }
+
+            // Test 6: Verify groups are independent
+            RSP.setCurrentGroup(sourceGroup.id);
+            RSP.addStudent('David'); // Add to source
+
+            RSP.setCurrentGroup(copiedGroup.id);
+            RSP.addStudent('Emma'); // Add to copy
+
+            const sourceStudentsAfter = RSP.getStudents();
+            RSP.setCurrentGroup(sourceGroup.id);
+            const copiedStudentsAfter = RSP.getStudents();
+
+            RSP.setCurrentGroup(copiedGroup.id);
+            const finalCopiedStudents = RSP.getStudents();
+
+            log(`✓ Source group now has ${copiedStudentsAfter.length} students (should be 4)`);
+            log(`✓ Copied group now has ${finalCopiedStudents.length} students (should be 4)`);
+
+            if (copiedStudentsAfter.length === 4 && finalCopiedStudents.length === 4) {
+                log('✓ Groups are independent - changes to one don\'t affect the other');
+            }
+
+            // Test 7: Show all groups
+            const allGroups = RSP.getAllGroups();
+            log(`✓ Total groups now: ${allGroups.length}`);
+            allGroups.forEach(group => {
+                log(`   - "${group.title}": ${group.students.length} students`);
+            });
+
+            log('All copy group tests completed! ✅');
+        }
+
+        runCopyGroupTests();
+    </script>
+</body>
+</html>

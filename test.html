@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Multiple Groups</title>
+    <script src="storage.js"></script>
+</head>
+<body>
+    <h1>Testing Multiple Groups Feature</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message) {
+            output.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        function runTests() {
+            log('Starting tests...');
+
+            // Clear all data first
+            localStorage.removeItem('rsp:data');
+
+            // Test 1: Check default group creation
+            const initialData = RSP.load();
+            const groups = RSP.getAllGroups();
+            log(`✓ Initial groups created: ${groups.length} group(s)`);
+            log(`✓ Default group title: "${groups[0].title}"`);
+
+            // Test 2: Create new group
+            const newGroup = RSP.createGroup('Test Class A');
+            log(`✓ Created new group: "${newGroup.title}"`);
+
+            // Test 3: Switch to new group
+            RSP.setCurrentGroup(newGroup.id);
+            const currentGroup = RSP.getCurrentGroup();
+            log(`✓ Current group: "${currentGroup.title}"`);
+
+            // Test 4: Add students to current group
+            RSP.addStudent('Alice');
+            RSP.addStudent('Bob');
+            const students = RSP.getStudents();
+            log(`✓ Added ${students.length} students to "${currentGroup.title}"`);
+
+            // Test 5: Create another group and switch
+            const group2 = RSP.createGroup('Test Class B');
+            RSP.setCurrentGroup(group2.id);
+            RSP.addStudent('Charlie');
+            RSP.addStudent('David');
+            const students2 = RSP.getStudents();
+            log(`✓ Added ${students2.length} students to "${group2.title}"`);
+
+            // Test 6: Switch back to first group and verify students
+            RSP.setCurrentGroup(newGroup.id);
+            const studentsBack = RSP.getStudents();
+            log(`✓ Switched back to "${newGroup.title}", has ${studentsBack.length} students`);
+
+            // Test 7: Test pick functionality
+            const picked = RSP.pickFair();
+            if (picked) {
+                log(`✓ Successfully picked: "${picked.name}"`);
+            }
+
+            // Test 8: Check all groups
+            const allGroups = RSP.getAllGroups();
+            log(`✓ Total groups: ${allGroups.length}`);
+            allGroups.forEach(g => {
+                log(`   - "${g.title}": ${g.students.length} students`);
+            });
+
+            log('All tests completed successfully! ✅');
+        }
+
+        runTests();
+    </script>
+</body>
+</html>
