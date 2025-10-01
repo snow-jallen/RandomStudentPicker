@@ -13,6 +13,12 @@
   </header>
   <main>
     <h1>Picker</h1>
+    <div class="group-selector" style="margin-bottom:15px;">
+      <label for="groupSelect" style="font-size:14px; color:#666; margin-right:8px;">Student List:</label>
+      <select id="groupSelect" style="padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:14px;">
+        <option value="">Loading...</option>
+      </select>
+    </div>
     <div id="currentGroupInfo" style="margin-bottom:10px; font-size:14px; color:#666;"></div>
     <div class="picker-container">
       <div class="dice-area" id="diceArea" style="display:none;">
@@ -32,6 +38,31 @@
   const diceWrapper = document.getElementById('diceWrapper');
     const statusLine = document.getElementById('statusLine');
     const currentGroupInfo = document.getElementById('currentGroupInfo');
+    const groupSelect = document.getElementById('groupSelect');
+
+    function populateGroupDropdown() {
+      const allGroups = RSP.getAllGroups();
+      const currentGroup = RSP.getCurrentGroup();
+
+      groupSelect.innerHTML = '';
+
+      allGroups.forEach(group => {
+        const option = document.createElement('option');
+        option.value = group.id;
+        option.textContent = group.title;
+        if (currentGroup && group.id === currentGroup.id) {
+          option.selected = true;
+        }
+        groupSelect.appendChild(option);
+      });
+    }
+
+    function handleGroupChange() {
+      const selectedGroupId = groupSelect.value;
+      if (selectedGroupId && RSP.setCurrentGroup(selectedGroupId)) {
+        updateStatus();
+      }
+    }
 
     function updateStatus() {
       const currentGroup = RSP.getCurrentGroup();
@@ -216,25 +247,94 @@
       if (animationFrame) cancelAnimationFrame(animationFrame);
     }
 
+    // Sound management
+    const CELEBRATION_SOUNDS = [
+      'sounds/cheer1.mp3',
+      'sounds/cheer2.mp3',
+      'sounds/applause1.mp3',
+      'sounds/applause2.mp3',
+      'sounds/celebration1.mp3',
+      'sounds/celebration2.mp3'
+    ];
+
+    let diceRollingAudio = null;
+
+    function playRandomCelebrationSound() {
+      const randomSound = CELEBRATION_SOUNDS[Math.floor(Math.random() * CELEBRATION_SOUNDS.length)];
+      const audio = new Audio(randomSound);
+      audio.volume = 0.7; // Set volume to 70%
+      audio.play().catch(error => {
+        // Silently handle audio play errors (e.g., user hasn't interacted with page yet)
+        console.log('Audio play failed:', error);
+      });
+    }
+
+    function playDiceRollingSound() {
+      // Stop any existing dice rolling sound
+      if (diceRollingAudio) {
+        diceRollingAudio.pause();
+        diceRollingAudio.currentTime = 0;
+      }
+
+      diceRollingAudio = new Audio('sounds/dice-rolling.mp3');
+      diceRollingAudio.volume = 0.5; // Set volume to 50% for background sound
+      diceRollingAudio.play().catch(error => {
+        console.log('Dice rolling audio play failed:', error);
+      });
+    }
+
+    function stopDiceRollingSound() {
+      if (diceRollingAudio) {
+        diceRollingAudio.pause();
+        diceRollingAudio.currentTime = 0;
+        diceRollingAudio = null;
+      }
+    }
+
     pickBtn.addEventListener('click', () => {
       const students = RSP.getStudents();
       if (!students.length) { alert('Add students first in Settings.'); return; }
       pickBtn.disabled = true;
       resultEl.textContent = '';
       startDiceAnimation();
+      playDiceRollingSound();
       setTimeout(() => {
         const picked = RSP.pickRandom();
         stopDiceAnimation();
+        stopDiceRollingSound();
+
         if (picked) {
+          // Clear any existing animation classes
+          resultEl.className = '';
           resultEl.textContent = picked.name;
+
+          // Play celebration sound
+          playRandomCelebrationSound();
+
+          // Trigger the reveal animation
+          requestAnimationFrame(() => {
+            resultEl.classList.add('student-reveal');
+          });
+
+          // Clean up animation class after animation completes
+          setTimeout(() => {
+            resultEl.classList.remove('student-reveal');
+          }, 2000);
+
         } else {
           resultEl.textContent = 'No student selected.';
         }
+
         pickBtn.disabled = false;
         updateStatus();
       }, 1500);
     });
 
+    // Add event listener for group selection
+    groupSelect.addEventListener('change', handleGroupChange);
+
+    // Initialize the page
+    populateGroupDropdown();
     updateStatus();
   </script>
 </body>

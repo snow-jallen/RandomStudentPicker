@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sound Test</title>
+</head>
+<body>
+    <h1>Sound System Test</h1>
+    <p>This page tests the sound functionality for the Random Student Picker.</p>
+
+    <button id="testSoundBtn">Test Random Celebration Sound</button>
+    <p id="status">Click the button to test the sound system.</p>
+
+    <script>
+        // Same sound management code from main app
+        const CELEBRATION_SOUNDS = [
+            'sounds/cheer1.mp3',
+            'sounds/cheer2.mp3',
+            'sounds/applause1.mp3',
+            'sounds/applause2.mp3',
+            'sounds/celebration1.mp3',
+            'sounds/celebration2.mp3',
+            'sounds/success1.mp3',
+            'sounds/success2.mp3'
+        ];
+
+        function playRandomCelebrationSound() {
+            const randomSound = CELEBRATION_SOUNDS[Math.floor(Math.random() * CELEBRATION_SOUNDS.length)];
+            const audio = new Audio(randomSound);
+            audio.volume = 0.7;
+
+            document.getElementById('status').textContent = `Attempting to play: ${randomSound}`;
+
+            audio.play().catch(error => {
+                document.getElementById('status').textContent = `Audio play failed: ${error.message}. This is expected if sound files are not yet added.`;
+                console.log('Audio play failed:', error);
+            });
+
+            audio.addEventListener('loadstart', () => {
+                document.getElementById('status').textContent = `Loading: ${randomSound}`;
+            });
+
+            audio.addEventListener('canplaythrough', () => {
+                document.getElementById('status').textContent = `Successfully playing: ${randomSound}`;
+            });
+        }
+
+        document.getElementById('testSoundBtn').addEventListener('click', playRandomCelebrationSound);
+    </script>
+</body>
+</html>
