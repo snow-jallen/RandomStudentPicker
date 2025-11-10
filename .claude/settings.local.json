@@ -12,7 +12,10 @@
       "Bash(ffprobe:*)",
       "Bash(done)",
       "Bash(ffmpeg:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(cat:*)",
+      "Bash(git remote get-url:*)",
+      "Bash(npx:*)"
     ],
     "deny": [],
     "ask": []

@@ -4,22 +4,24 @@
   <meta charset="UTF-8" />
   <title>Random Student Picker</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
 <body>
   <header>
-    <div style="flex:1;font-weight:600;">Random Student Picker</div>
+    <a href="https://github.com/snow-jallen/RandomStudentPicker" target="_blank" rel="noopener noreferrer" style="flex:1;font-weight:600;display:flex;align-items:center;gap:10px;text-decoration:none;">
+      <img src="logo.svg" alt="Random Student Picker" style="width:32px;height:32px;" />
+      <span style="background:var(--gradient-primary);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Random Student Picker</span>
+    </a>
     <nav><a href="settings.html">Settings</a></nav>
   </header>
   <main>
-    <h1>Picker</h1>
-    <div class="group-selector" style="margin-bottom:15px;">
-      <label for="groupSelect" style="font-size:14px; color:#666; margin-right:8px;">Student List:</label>
-      <select id="groupSelect" style="padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:14px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h1 style="margin:0;">Picker</h1>
+      <select id="groupSelect" style="padding:8px 12px;">
         <option value="">Loading...</option>
       </select>
     </div>
-    <div id="currentGroupInfo" style="margin-bottom:10px; font-size:14px; color:#666;"></div>
     <div class="picker-container">
       <div class="dice-area" id="diceArea" style="display:none;">
         <div class="dice-wrapper" id="diceWrapper"></div>
@@ -37,7 +39,6 @@
   const diceArea = document.getElementById('diceArea');
   const diceWrapper = document.getElementById('diceWrapper');
     const statusLine = document.getElementById('statusLine');
-    const currentGroupInfo = document.getElementById('currentGroupInfo');
     const groupSelect = document.getElementById('groupSelect');
 
     function populateGroupDropdown() {
@@ -67,11 +68,6 @@
     function updateStatus() {
       const currentGroup = RSP.getCurrentGroup();
       const students = RSP.getStudents();
-
-      if (currentGroup) {
-        const cycles = currentGroup.cycles || 1;
-        currentGroupInfo.textContent = `Group: ${currentGroup.title} (${cycles} cycle${cycles > 1 ? 's' : ''} per student)`;
-      }
 
       if (!students.length) {
         statusLine.textContent = 'No students yet. Go to Settings to add some.';
@@ -314,12 +310,41 @@
           // Trigger the reveal animation
           requestAnimationFrame(() => {
             resultEl.classList.add('student-reveal');
+
+            // Add random sparkles around the name
+            const sparkleCount = Math.floor(Math.random() * 6) + 4; // 4-9 sparkles
+            const resultRect = resultEl.getBoundingClientRect();
+            const centerX = resultRect.width / 2;
+            const centerY = resultRect.height / 2;
+
+            for (let i = 0; i < sparkleCount; i++) {
+              const sparkle = document.createElement('div');
+              sparkle.className = 'animation-sparkle';
+              sparkle.textContent = '✨';
+
+              // Random angle and distance from center
+              const angle = Math.random() * Math.PI * 2;
+              const distance = 150 + Math.random() * 100; // 150-250px from center
+              const x = centerX + Math.cos(angle) * distance;
+              const y = centerY + Math.sin(angle) * distance;
+
+              sparkle.style.setProperty('--sparkle-delay', `${Math.random() * 0.5}s`);
+              sparkle.style.setProperty('--sparkle-duration', `${1.5 + Math.random() * 1}s`);
+              sparkle.style.setProperty('--sparkle-x', `${x}px`);
+              sparkle.style.setProperty('--sparkle-y', `${y}px`);
+              resultEl.appendChild(sparkle);
+            }
           });
 
-          // Clean up animation class after animation completes
+          // After animation completes, apply final state and hide dice
           setTimeout(() => {
             resultEl.classList.remove('student-reveal');
-          }, 2000);
+            resultEl.classList.add('student-final');
+            // Remove sparkles
+            resultEl.querySelectorAll('.animation-sparkle').forEach(s => s.remove());
+            // Hide dice area
+            diceArea.style.display = 'none';
+          }, 1800);
 
         } else {
           resultEl.textContent = 'No student selected.';
