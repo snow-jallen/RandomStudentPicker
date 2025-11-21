@@ -52,7 +52,7 @@
     <h2 style="margin-top:30px;">Students</h2>
     <table id="studentsTable">
       <thead>
-        <tr><th style="width:40px;">#</th><th>Name</th><th>Count</th><th>Actions</th></tr>
+        <tr><th style="width:40px;">#</th><th>Name</th><th>Count</th><th>Status</th><th>Actions</th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -133,10 +133,17 @@
       students.sort((a,b) => a.name.localeCompare(b.name));
       students.forEach((s, i) => {
         const tr = document.createElement('tr');
+        const isExcluded = s.excluded || false;
+        const statusButton = isExcluded
+          ? `<button class="secondary small" data-toggle="${s.id}">Include</button>`
+          : `<button class="secondary small" data-toggle="${s.id}">Exclude</button>`;
+        const rowStyle = isExcluded ? 'style="opacity:0.5;"' : '';
+        const nameStyle = isExcluded ? 'style="text-decoration:line-through;"' : '';
         tr.innerHTML = `
-          <td>${i+1}</td>
-          <td><input class="inline-input" data-id="${s.id}" value="${escapeHtml(s.name)}" /></td>
-          <td><span class="pill" title="Times picked">${s.picks.length}</span></td>
+          <td ${rowStyle}>${i+1}</td>
+          <td ${rowStyle}><input class="inline-input" data-id="${s.id}" value="${escapeHtml(s.name)}" ${nameStyle} /></td>
+          <td ${rowStyle}><span class="pill" title="Times picked">${s.picks.length}</span></td>
+          <td>${statusButton}</td>
           <td class="row-actions"><button data-del="${s.id}">Delete</button></td>
         `;
         studentsTableBody.appendChild(tr);
@@ -205,6 +212,12 @@
           RSP.deleteStudent(id);
           renderStudents();
         }
+      }
+      if (e.target.matches('button[data-toggle]')) {
+        const id = e.target.getAttribute('data-toggle');
+        RSP.toggleExcluded(id);
+        renderStudents();
+        updateCyclesInfo();
       }
     });
 

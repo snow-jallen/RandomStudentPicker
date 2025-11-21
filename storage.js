@@ -173,7 +173,8 @@ function rsp_copyGroup(sourceGroupId, newTitle) {
     students: sourceGroup.students.map(student => ({
       id: rsp_uuid(), // Give each student a new ID
       name: student.name,
-      picks: [] // Start with empty pick history
+      picks: [], // Start with empty pick history
+      excluded: false // Reset excluded status for new group
     })),
     history: [] // Start with empty history
   };
@@ -208,7 +209,7 @@ function rsp_addStudent(name) {
   const data = rsp_load();
   const currentGroup = data.groups[data.currentGroupId];
   if (!currentGroup) return null;
-  const student = { id: rsp_uuid(), name: name.trim(), picks: [] };
+  const student = { id: rsp_uuid(), name: name.trim(), picks: [], excluded: false };
   currentGroup.students.push(student);
   rsp_save(data);
   return student;
@@ -234,6 +235,19 @@ function rsp_renameStudent(id, newName) {
     currentGroup.history.forEach(h => { if (h.id === id) h.name = s.name; });
     rsp_save(data);
   }
+}
+
+function rsp_toggleExcluded(id) {
+  const data = rsp_load();
+  const currentGroup = data.groups[data.currentGroupId];
+  if (!currentGroup) return false;
+  const s = currentGroup.students.find(s => s.id === id);
+  if (s) {
+    s.excluded = !s.excluded;
+    rsp_save(data);
+    return s.excluded;
+  }
+  return false;
 }
 
 function rsp_clearAll() {
@@ -284,28 +298,36 @@ function rsp_pickRandom() {
   const students = currentGroup.students;
   if (!students.length) return null;
 
+  // Filter out excluded students
+  const activeStudents = students.filter(s => !s.excluded);
+  if (!activeStudents.length) return null;
+
   const cycles = currentGroup.cycles || 1;
-  const counts = students.map(s => s.picks.length);
+  const counts = activeStudents.map(s => s.picks.length);
   const maxCount = Math.max(...counts);
 
   // Check if everyone has reached the cycle limit
   if (maxCount >= cycles && counts.every(count => count >= cycles)) {
-    // Auto-reset: everyone has completed all cycles
-    rsp_resetCounts();
+    // Auto-reset: everyone has completed all cycles (only for active students)
+    activeStudents.forEach(s => { s.picks = []; });
+    currentGroup.history = [];
+    rsp_save(rsp_load());
     // After reset, pick from anyone randomly
-    const idx = rsp_secureRandomIndex(students.length);
-    const chosen = students[idx];
+    const idx = rsp_secureRandomIndex(activeStudents.length);
+    const chosen = activeStudents[idx];
     return rsp_recordPick(chosen.id);
   }
 
   // Find students who haven't reached the cycle limit yet
-  const eligibleStudents = students.filter(s => s.picks.length < cycles);
+  const eligibleStudents = activeStudents.filter(s => s.picks.length < cycles);
 
   if (!eligibleStudents.length) {
     // This shouldn't happen, but if it does, reset and try again
-    rsp_resetCounts();
-    const idx = rsp_secureRandomIndex(students.length);
-    const chosen = students[idx];
+    activeStudents.forEach(s => { s.picks = []; });
+    currentGroup.history = [];
+    rsp_save(rsp_load());
+    const idx = rsp_secureRandomIndex(activeStudents.length);
+    const chosen = activeStudents[idx];
     return rsp_recordPick(chosen.id);
   }
 
@@ -344,6 +366,7 @@ window.RSP = {
   addStudent: rsp_addStudent,
   deleteStudent: rsp_deleteStudent,
   renameStudent: rsp_renameStudent,
+  toggleExcluded: rsp_toggleExcluded,
   clearAll: rsp_clearAll,
   resetCounts: rsp_resetCounts,
   recordPick: rsp_recordPick,

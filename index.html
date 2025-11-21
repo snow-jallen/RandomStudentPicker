@@ -72,16 +72,26 @@
       if (!students.length) {
         statusLine.textContent = 'No students yet. Go to Settings to add some.';
       } else {
-        const counts = students.map(s => s.picks.length);
-        const min = Math.min(...counts);
-        const max = Math.max(...counts);
-        const cycles = currentGroup ? currentGroup.cycles || 1 : 1;
+        const activeStudents = students.filter(s => !s.excluded);
+        const excludedCount = students.length - activeStudents.length;
 
-        // Show cycle progress
-        const completedStudents = students.filter(s => s.picks.length >= cycles).length;
-        const cycleProgress = cycles > 1 ? ` | Cycle progress: ${completedStudents}/${students.length} complete` : '';
+        if (activeStudents.length === 0) {
+          statusLine.textContent = `All ${students.length} students are excluded. Go to Settings to include some.`;
+        } else {
+          const counts = activeStudents.map(s => s.picks.length);
+          const min = Math.min(...counts);
+          const max = Math.max(...counts);
+          const cycles = currentGroup ? currentGroup.cycles || 1 : 1;
 
-        statusLine.textContent = `Students: ${students.length} | Pick count range: ${min}-${max}/${cycles}${cycleProgress}`;
+          // Show cycle progress
+          const completedStudents = activeStudents.filter(s => s.picks.length >= cycles).length;
+          const cycleProgress = cycles > 1 ? ` | Cycle progress: ${completedStudents}/${activeStudents.length} complete` : '';
+
+          // Show excluded count if any
+          const excludedInfo = excludedCount > 0 ? ` (${excludedCount} excluded)` : '';
+
+          statusLine.textContent = `Students: ${activeStudents.length}${excludedInfo} | Pick count range: ${min}-${max}/${cycles}${cycleProgress}`;
+        }
       }
     }
 
@@ -290,6 +300,8 @@
     pickBtn.addEventListener('click', () => {
       const students = RSP.getStudents();
       if (!students.length) { alert('Add students first in Settings.'); return; }
+      const activeStudents = students.filter(s => !s.excluded);
+      if (!activeStudents.length) { alert('All students are excluded. Go to Settings to include some.'); return; }
       pickBtn.disabled = true;
       resultEl.textContent = '';
       startDiceAnimation();
