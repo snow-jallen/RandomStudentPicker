@@ -30,6 +30,16 @@
       <button id="pickBtn">Pick Random Student</button>
       <div class="status-line" id="statusLine"></div>
     </div>
+
+    <div class="groups-section">
+      <h2>Random Groups</h2>
+      <div class="groups-controls">
+        <label for="groupSize">Group size:</label>
+        <input type="number" id="groupSize" min="2" max="10" value="2" />
+        <button id="createGroupsBtn" class="secondary">Create Random Groups</button>
+      </div>
+      <div id="groupsDisplay"></div>
+    </div>
   </main>
   <footer>Data stored locally. <a class="inline-link" href="settings.html">Manage students</a>.</footer>
   <script src="storage.js"></script>
@@ -373,6 +383,127 @@
     // Initialize the page
     populateGroupDropdown();
     updateStatus();
+
+    // Random Groups functionality
+    const createGroupsBtn = document.getElementById('createGroupsBtn');
+    const groupSizeInput = document.getElementById('groupSize');
+    const groupsDisplay = document.getElementById('groupsDisplay');
+
+    function createRandomGroups() {
+      const students = RSP.getStudents();
+      const activeStudents = students.filter(s => !s.excluded);
+
+      if (!activeStudents.length) {
+        alert('No active students to group. Go to Settings to add or include students.');
+        return;
+      }
+
+      const groupSize = parseInt(groupSizeInput.value);
+      if (groupSize < 2 || groupSize > activeStudents.length) {
+        alert(`Group size must be between 2 and ${activeStudents.length}.`);
+        return;
+      }
+
+      // Shuffle students randomly
+      const shuffled = [...activeStudents].sort(() => Math.random() - 0.5);
+
+      // Calculate groups
+      const totalStudents = shuffled.length;
+      const remainder = totalStudents % groupSize;
+      let numGroups = Math.floor(totalStudents / groupSize);
+
+      const groups = [];
+      let currentIndex = 0;
+
+      // Handle remainder based on group size
+      if (remainder === 0) {
+        // Perfect division
+        for (let i = 0; i < numGroups; i++) {
+          groups.push(shuffled.slice(currentIndex, currentIndex + groupSize));
+          currentIndex += groupSize;
+        }
+      } else if (groupSize === 2) {
+        // For pairs, make one group of 3
+        for (let i = 0; i < numGroups; i++) {
+          groups.push(shuffled.slice(currentIndex, currentIndex + groupSize));
+          currentIndex += groupSize;
+        }
+        if (remainder > 0) {
+          // Add remaining students to last group (making it 3)
+          groups[groups.length - 1].push(...shuffled.slice(currentIndex));
+        }
+      } else if (groupSize === 3) {
+        // For groups of 3, handle remainder intelligently
+        if (remainder === 1) {
+          // Make one group of 4 instead
+          for (let i = 0; i < numGroups - 1; i++) {
+            groups.push(shuffled.slice(currentIndex, currentIndex + groupSize));
+            currentIndex += groupSize;
+          }
+          // Last group gets 4 students
+          groups.push(shuffled.slice(currentIndex));
+        } else if (remainder === 2) {
+          // Make one group of 2
+          for (let i = 0; i < numGroups; i++) {
+            groups.push(shuffled.slice(currentIndex, currentIndex + groupSize));
+            currentIndex += groupSize;
+          }
+          groups.push(shuffled.slice(currentIndex));
+        }
+      } else {
+        // For group sizes 4+, never exceed the group size
+        // Make full groups, then a smaller group for remainder
+        for (let i = 0; i < numGroups; i++) {
+          groups.push(shuffled.slice(currentIndex, currentIndex + groupSize));
+          currentIndex += groupSize;
+        }
+        if (remainder > 0) {
+          // Create a separate smaller group for remainder
+          groups.push(shuffled.slice(currentIndex));
+        }
+      }
+
+      displayGroups(groups);
+    }
+
+    function displayGroups(groups) {
+      if (!groups.length) {
+        groupsDisplay.innerHTML = '';
+        return;
+      }
+
+      const colors = [
+        'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+        'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+        'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+        'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+        'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+        'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+        'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+        'linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%)'
+      ];
+
+      let html = '<div class="groups-grid">';
+      groups.forEach((group, index) => {
+        const gradient = colors[index % colors.length];
+        html += `
+          <div class="group-card" style="background: ${gradient};">
+            <div class="group-header">Group ${index + 1}</div>
+            <div class="group-members">
+              ${group.map(student => `<div class="member-name">${student.name}</div>`).join('')}
+            </div>
+            <div class="group-count">${group.length} member${group.length !== 1 ? 's' : ''}</div>
+          </div>
+        `;
+      });
+      html += '</div>';
+
+      groupsDisplay.innerHTML = html;
+    }
+
+    createGroupsBtn.addEventListener('click', createRandomGroups);
   </script>
 </body>
 </html>
