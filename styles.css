@@ -309,7 +309,7 @@ tr:hover td {
 }
 
 .result {
-  font-size: 120px;
+  font-size: 80px;
   font-weight: 900;
   min-height: 300px;
   text-align: center;
@@ -597,10 +597,10 @@ a.inline-link:hover {
 }
 
 .student-reveal {
-  animation: studentReveal 1.8s cubic-bezier(0.175, 0.885, 0.32, 1.4) forwards;
+  animation: studentReveal 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.4) forwards;
   position: relative;
   perspective: 1200px;
-  font-size: min(280px, 25vw) !important;
+  font-size: min(180px, 18vw) !important;
   color: #8b5cf6 !important;
   background: none !important;
   -webkit-background-clip: initial !important;
@@ -642,7 +642,7 @@ a.inline-link:hover {
 }
 
 .student-final {
-  font-size: min(160px, 15vw) !important;
+  font-size: min(120px, 12vw) !important;
   font-weight: 900 !important;
   font-family: 'Righteous', 'Inter', sans-serif !important;
   background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 25%, #ef4444 50%, #ec4899 75%, #8b5cf6 100%) !important;

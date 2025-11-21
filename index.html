@@ -216,7 +216,7 @@
         });
       }
       const start = performance.now();
-      const duration = 1500; // ms
+      const duration = 1000; // ms
       function step(now) {
         const dt = (now - (step.last || now))/1000; step.last = now;
         const elapsed = now - start;
@@ -356,7 +356,7 @@
             resultEl.querySelectorAll('.animation-sparkle').forEach(s => s.remove());
             // Hide dice area
             diceArea.style.display = 'none';
-          }, 1800);
+          }, 1200);
 
         } else {
           resultEl.textContent = 'No student selected.';
@@ -364,7 +364,7 @@
 
         pickBtn.disabled = false;
         updateStatus();
-      }, 1500);
+      }, 1000);
     });
 
     // Add event listener for group selection
